@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import copy
 import numpy as np
+import pandas as pd
 
 
 import matsya_mmg
@@ -17,7 +18,7 @@ import matsya_mmg
 class matsya_mmg_wrap():
     
     
-    def __init__(self,
+     def __init__(self,
                 wind_flag=0,
                 wind_speed=0,
                 wind_dir=0,
@@ -48,17 +49,26 @@ class matsya_mmg_wrap():
 
         self.rate_value = 100
         
-        self.time_step = 1
+        self.time_step = 0.5
         
         
         self.forward_primitive = []
         #self.time_step = 0.00466  ################how you reached this value ?
 
         self.delta_c = 0        
-        self.sim_state=np.array([1e-6, 0, 0, 0, 0, 0, 0])  #-np.pi/2
+        self.sim_state=np.array([1e-6, 0, 0, 0, 0, 0 , 0])  #-np.pi/2
+        
+     def ssa(ang, deg=False):
+        
+        if deg:
+            ang = (ang + 180) % (360.0) - 180.0
+        else:
+            ang = (ang + np.pi) % (2 * np.pi) - np.pi
+        return ang
     
-    def step(self,action):
-        print("Rudder angle applied now",self.delta_c*(180/np.pi))
+    
+     def step(self,action):
+        
         tspan = (0, self.time_step)
         yinit = self.sim_state
         #using i deciding 
@@ -66,13 +76,14 @@ class matsya_mmg_wrap():
            self.delta_c = 0 
            
         if action==-1:
-         self.delta_c =-(10.0 / 180.0) * np.pi
+         self.delta_c = -(10.0 / 180.0) * np.pi
          
          
         if action==1:
-            self.delta_c =(10.0 / 180.0) * np.pi
+            self.delta_c = (10.0 / 180.0) * np.pi
             
-        
+            
+        print("Rudder angle applied now",self.delta_c*(180/np.pi))
         '''Motion_primitive_Forward'''
         
         #### Delta value same as initial value
@@ -85,15 +96,16 @@ class matsya_mmg_wrap():
         
         u = sol.y[0, -1]*self.U
         v = sol.y[1, -1]*self.U
-        r = sol.y[2, -1]*self.U/self.L
+        r = sol.y[2, -1]*self.U /self.L
         x = sol.y[3, -1]*self.L
         y = sol.y[4, -1]*self.L
         psi_rad = sol.y[5, -1]  # psi
         
-        psi = psi_rad % (2 * np.pi)
+        psi = (psi_rad + np.pi) % (2 * np.pi) - np.pi
+        
         delta = sol.y[6, -1]
         
-        self.new_primitive_f = [x,y,psi*(180/np.pi),delta*(180/np.pi)]
+        self.new_primitive_f = [x,y,  np.rad2deg(psi) , delta*(180/np.pi)]
         
         self.forward_primitive.append(self.new_primitive_f)
         self.sim_state = np.array([sol.y[0, -1], sol.y[1, -1], sol.y[2, -1], sol.y[3, -1], sol.y[4, -1], psi, sol.y[6, -1]])
@@ -123,13 +135,16 @@ if __name__=="__main__":
     for i in range(10):
          r.append(matsya3.step(1))
 
+        
+# Printing the lists
+# =============================================================================
+#     print("Results for Forward Action (0):")
+#     for i, val in enumerate(f):
+#         print(f"Step {i+1}: {val}")
+#     
+# =============================================================================
 
-    
-   # Printing the lists
-    print("Results for Forward Action (0):")
-    for i, val in enumerate(f):
-        print(f"Step {i+1}: {val}")
-    
+
     print("\n \nResults for Left Action (-1):")
     for i, val in enumerate(l):
         print(f"\nStep {i+1}: {val}")
@@ -161,6 +176,20 @@ if __name__=="__main__":
     plt.legend()
    
     plt.show()
+    
+   # Create a DataFrame for each action
+   
+    df_f = pd.DataFrame(f, columns=['X', 'Y', 'Heading (deg)', 'Rudder angle (deg)'])
+    df_l = pd.DataFrame(l, columns=['X', 'Y', 'Heading (deg)', 'Rudder angle (deg)'])
+    df_r = pd.DataFrame(r, columns=['X', 'Y', 'Heading (deg)', 'Rudder angle (deg)'])
+    
+    # Export DataFrames to Excel
+    
+    with pd.ExcelWriter('ship_data.xlsx', engine='xlsxwriter') as writer:
+        
+        df_f.to_excel(writer, sheet_name='Forward Action', index=False)
+        df_l.to_excel(writer, sheet_name='Left Action',    index=False)
+        df_r.to_excel(writer, sheet_name='Right Action',   index=False)
     
     
       
