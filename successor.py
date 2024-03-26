@@ -43,13 +43,13 @@ class Maze:
        matsya2=matsya_mmg_wrap()
        
        for i in range(10):
-           self.l.append(matsya2.step(-1))
+           self.l.append(matsya2.step(1))
            
            
        matsya3=matsya_mmg_wrap()
 
        for i in range(10):
-            self.r.append(matsya3.step(1))
+            self.r.append(matsya3.step(-1))
        
        
        #print(fx,fy,lx,ly,"succesor")
@@ -58,7 +58,8 @@ class Maze:
         
         x,y ,psi = state 
         successors=[]
-        self.theta =state[2]
+        self.theta =np.deg2rad(state[2])
+        
         #print("heading angle is now  ",state[2])
         self.R = np.array([
              [np.cos(self.theta), -np.sin(self.theta)],
