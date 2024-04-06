@@ -25,7 +25,13 @@ class Problem:
 
     def __init__(self):
        
-        self.f,self.l,self.r=[],[],[]
+        self.f,self.ten_l,self.ten_r,self.twenty_r,self.twenty_l=[],[],[],[],[]
+
+
+
+
+
+        '''         used as old motion primitives
 
         self.f = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
                   [0.9633015258572852, 0.0, 0.0, 0.0], 
@@ -47,23 +53,28 @@ class Problem:
                   [2.6543593762232724, -0.4828878824776647, -20.561529054446016, -10.142700532757704], 
                   [3.3623835451380333, -0.7450933375499272, -24.802460965024657, -10.02930533090411], 
                   [4.113626655723127, -1.0858474001943403, -29.346170949010983, -9.880431918674308], 
-                  [4.891513216350091, -1.5129917856539166, -34.19494213178685, -9.985379313082818]]
+                  [4.891513216350091, -1.5129917856539166, -34.19494213178685, -9.985379313082818]]     '''
+        
+        self.f = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
+                  [12.1847322, 0.0, 0.0, 0.0]]
+        self.ten_l = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
+                  [11.4899337,	2.186791127,	38.38626691]]
+        self.ten_r = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
+                  [11.31995916	,-2.386289743,	-43.51630406]]
+        
+        self.twenty_l = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
+                  [10.26303055	,3.422383216,	63.73175065,	19.93423815]]
+        self.twenty_r = [[0.06299997541643738, 0.0, 0.0,0.0 ], 
+                  [10.02278982,	-3.444872016,	-66.26462692,	-20.2255009]]
+
+
 
         self.map_grid  = map_grid.maps_dictionary[1] 
 
         return
 
-
-
-
-
-
-
-    
-
     def getSuccessors(self, state):
         
-
 
         x,y ,psi = state 
         successors=[]
@@ -75,25 +86,33 @@ class Problem:
              [np.sin(self.theta), np.cos(self.theta)]
          ])
         fx,fy,fpsi = [self.f[-1][0],self.f[-1][1],self.f[-1][2]]        
-        lx,ly,lpsi = [self.l[-1][0],self.l[-1][1],self.l[-1][2]]  
-        rx,ry,rpsi = [self.r[-1][0],self.r[-1][1],self.r[-1][2]]  
+        ten_lx,ten_ly,ten_lpsi = [self.ten_l[-1][0],self.ten_l[-1][1],self.ten_l[-1][2]]  
+        ten_rx,ten_ry,ten_rpsi = [self.ten_r[-1][0],self.ten_r[-1][1],self.ten_r[-1][2]]  
+
+        twenty_lx,twenty_ly,twenty_lpsi = [self.twenty_l[-1][0],self.twenty_l[-1][1],self.twenty_l[-1][2]]  
+        twenty_rx,twenty_ry,twenty_rpsi = [self.twenty_r[-1][0],self.twenty_r[-1][1],self.twenty_r[-1][2]]  
         # as per the heading angle fx , fy components will change , ignoring affect on fpsi 
         # print()
-        delta_action= np.array([[fx, fy],[lx,ly],[rx,ry]])
+        delta_action= np.array([[fx, fy], [ten_lx,ten_ly],[ten_rx,ten_ry] ,  [twenty_lx,twenty_ly],[twenty_rx,twenty_ry] ])
 
 
         rotated_action =np.dot(delta_action, self.R.T)
         
         fx ,fy =  rotated_action[0]
-        lx , ly = rotated_action[1]
-        rx , ry = rotated_action[2]
+        ten_lx , ten_ly = rotated_action[1]
+        ten_rx , ten_ry = rotated_action[2]
+        twenty_lx , twenty_ly = rotated_action[1]
+        twenty_rx , twenty_ry = rotated_action[2]
+
+
         #considering change in heading angle is independent of the instant heading  of ship  
-        self.three_actions = {'forward':[fx,fy,fpsi],'left': [lx, ly,lpsi], 'right': [rx, ry,rpsi] }
+        self.five_actions = {'forward':[fx,fy,fpsi],'ten_left': [ten_lx, ten_ly,ten_lpsi], 'ten_right': [ten_rx, ten_ry,ten_rpsi] 
+                            ,'twenty_left': [twenty_lx, twenty_ly,twenty_lpsi], 'twenty_right': [twenty_rx, twenty_ry,twenty_rpsi] }
 
         
-        for action in self.three_actions:
+        for action in self.five_actions:       # action in self.three_actions:
             
-            del_x ,del_y , del_psi = self.three_actions.get(action)
+            del_x ,del_y , del_psi = self.five_actions.get(action)
             
             ang = psi + del_psi
             
