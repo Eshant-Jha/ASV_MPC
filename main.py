@@ -3,149 +3,85 @@
 Created on Thu Mar 14 05:22:15 2024
 
 @author: ESHANT
+@efficiently edited by: THE GREAT DON
 """
-
+from inspect import FrameInfo
+from math import exp
+import time
 import numpy as np
 import search 
 import successor 
-import successor_genration
-import bezier_curve_generate
-from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt 
+import map_grid
+from matplotlib.colors import LinearSegmentedColormap
+import pandas as pd
 
 
-problem=successor.Maze(1, 0)
+
+problem=successor.Problem()
+
+
 #path= search.aStarSearch(problem, robot_id, start_state, planner, collison_point, neighbor_robot_point, goal_states)
-path= search.aStarSearch(problem, 1, [1,1,0], 1, [], [], [])
-print(path)
 
-# Extract x, y, and orientation (in the 2D plane)
-x = [point[0] for point in path]
-y = [point[1] for point in path]
-orientation = [point[2] for point in path]
+start = [190,366, 90]
+goal  = [ 650,150, 90]              #map check 300 220
+
+actual_start = [start[0]+ 618 , start[1]+94, start[2] ]
+actual_goal = [goal[0]+ 618 , goal[1]+94 , goal[2] ]
+map_grid.map.start= start
+map_grid.map.goal = goal
+
+init_time = time.time()
+
+# iter = 0
+# while iter >=1000:
+path,explored , fringe= search.aStarSearch(problem, 1, start , 1, [], [], [],iter)
+iter = 10
+
+fin_time = time.time()
+time_calc = fin_time-init_time
+print(time_calc,'time for planning')
+print(len(path),'path length')
+# print(path , 'path')
+# print(fringe,'fringe')
+print(path,'path')
 
 
+fringe_points = []
+for points in fringe:
+    fringe_points.append(points[0])
 
-# Define obstacle parameters
-obstacle_x = 3
-obstacle_y = 3
-obstacle_radius = 0.2
 
-# Create obstacle circle
-theta = np.linspace(0, 2*np.pi, 100)
-obstacle_circle_x = obstacle_x + obstacle_radius * np.cos(theta)
-obstacle_circle_y = obstacle_y + obstacle_radius * np.sin(theta)
+x = [point[0] for point in path] 
+y = [point[1] for point in path] 
+
+x_e = [pointe[0] for pointe in explored]
+y_e = [pointe[1] for pointe in explored]
+
+x_f = [pointf[0] for pointf in fringe_points]
+y_f = [pointf[1] for pointf in fringe_points]
+
+
+x_e = np.array(x_e)
+y_e = np.array(y_e)
 
 
 # Create figure and axis
 fig, ax = plt.subplots()
 
-# Plot points and connect with lines
-ax.plot(x, y, marker='x', linestyle='--', color='r')
-
-# Set labels
+ax.plot(x_e, y_e, marker='.', linestyle='none', color='y')
+ax.plot(x_f, y_f, marker='.', linestyle='none', color='b')
+ax.plot(x, y, marker='.', linestyle='-.', color='r')
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
-plt.plot(obstacle_circle_x, obstacle_circle_y, 'g--', label='Obstacle (20, 35, r=15)')
-plt.scatter(obstacle_x, obstacle_y, c='g', label='Obstacle Center (20, 35)')
+ax.set_aspect('equal')
 
-# Show plot
+cmap = {100: 'black', 0: 'white', -1: 'lightblue'}
+cmap_object = plt.matplotlib.colors.ListedColormap([cmap[val] for val in sorted(cmap.keys())])
+bounds = sorted(cmap.keys()) + [max(cmap.keys()) + 1]
+norm = plt.matplotlib.colors.BoundaryNorm(bounds, len(bounds) - 1)
+plt.imshow(map_grid.map.map_grid, cmap=cmap_object, norm=norm, interpolation='nearest')
+plt.colorbar(ticks=sorted(cmap.keys()))
+plt.gca().invert_yaxis()
+
 plt.show()
-#rudder angle to be re-initialised or kept zero after it reaches local waypoint with the heading provided
- #Extract x and y coordinates
-# =============================================================================
-#  
-# # Extract x and y coordinates from the path
-# x = [point[0] for point in path]
-# y = [point[1] for point in path]
-# 
-# # Create a smooth curve using interpolation
-# x_smooth = np.linspace(min(x), max(x), 1000)
-# f_smooth = interp1d(x, y, kind='cubic')
-# y_smooth = f_smooth(x_smooth)
-# 
-# # Define obstacle parameters
-# obstacle_x = 20
-# obstacle_y = 35
-# obstacle_radius = 15
-# 
-# # Create obstacle circle
-# theta = np.linspace(0, 2*np.pi, 100)
-# obstacle_circle_x = obstacle_x + obstacle_radius * np.cos(theta)
-# obstacle_circle_y = obstacle_y + obstacle_radius * np.sin(theta)
-# 
-# # Plot the smooth curve with obstacle
-# plt.figure(figsize=(10, 6))
-# plt.plot(x_smooth, y_smooth, 'r-', label='Smooth Curve')
-# plt.scatter(x, y, c='b', s=10, label='Path Points')  # Plot the original points as well
-# plt.plot(obstacle_circle_x, obstacle_circle_y, 'g--', label='Obstacle (20, 35, r=15)')
-# plt.scatter(obstacle_x, obstacle_y, c='g', label='Obstacle Center (20, 35)')
-# plt.xlabel('X')
-# plt.ylabel('Y')
-# plt.title('Path Plot with Obstacle')
-# plt.legend()
-# plt.grid(True)
-# plt.show() 
-# =============================================================================
- 
-# =============================================================================
-#  
-#  
-# x = [point[0] for point in path]
-# y = [point[1] for point in path]
-# 
-# # Create a smooth curve using interpolation
-# x_smooth = np.linspace(min(x), max(x), 1000)
-# f_smooth = interp1d(x, y, kind='cubic')
-# y_smooth = f_smooth(x_smooth)
-# 
-# 
-# 
-# # Plot the smooth curve
-# plt.figure(figsize=(10, 6))
-# plt.plot(x_smooth, y_smooth, 'r-')
-# plt.scatter(x, y, c='b', s=10)  # Plot the original points as well
-# plt.xlabel('X')
-# plt.ylabel('Y')
-# plt.title('Path Plot (Smooth Curve)')
-# plt.grid(True)
-# plt.show()
-# =============================================================================
- 
-#move to goal 
-
-def gtg(self, robot_state, goal_state):  
-    
-    
-        #The Go to goal controller
-        
-        #determine how far to rotate to face the goal point
-        
-        
-        #PS. ALL ANGLES ARE IN RADIANS
-        delta_theta = (np.arctan2((goal_state[1] - robot_state[1]), (goal_state[0] - robot_state[0]))) - robot_state[2]
-        
-        
-        #restrict angle to (-pi,pi)
-        delta_theta = ((delta_theta + np.pi)%(2.0*np.pi)) - np.pi
-        
-        
-        #Error is delta_theta in degrees
-        e_new = ((delta_theta*180.0)/np.pi)
-        e_dot = (e_new - self.prev_heading_error)/self.dt 
-        self.total_heading_error = (self.total_heading_error + e_new)*self.dt
-                    
-      
-        #rudder angle only 
-        #find distance to goal
-        d = np.sqrt(((goal_state[0] - robot_state[0])**2) + ((goal_state[1] - robot_state[1])**2))
-        
-        #velocity parameters
-        distThresh = 0.1#mm
-        
-        
-        #request robot to execute velocity
-        
-        return commanded_rudder_angle 
-    
-

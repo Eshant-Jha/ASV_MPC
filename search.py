@@ -3,11 +3,21 @@
 Created on Thu Mar 14 05:15:29 2024
 
 @author: ESHANT
+@efficiently edited by: THE GREAT DON
 """
 import numpy as np 
 import operator
 
+import matplotlib.pyplot as plt 
+import map_grid
+from matplotlib.colors import LinearSegmentedColormap
+
+
 heusritic_weight = 1
+break_len =5
+
+break_dub_len = 5
+
 
 def heuristic_1(problem, state, heusritic_weight, robot_id):
     
@@ -15,15 +25,18 @@ def heuristic_1(problem, state, heusritic_weight, robot_id):
     Manhattan distance
     """
     goal = problem.getGoalState(robot_id)
-    goal = problem.getGoalState(robot_id)
     del_x_1 = abs(state[0] - goal[0])
     del_y_1 = abs(state[1] - goal[1])
+
+    ecl  = ((del_x_1)**2 + (del_y_1)**2)**0.5
+    mhtn = del_x_1 + del_y_1
     
-    return heusritic_weight*(del_x_1 + del_y_1 )
+    return heusritic_weight* ecl   # take eucledian or manhanten
 
 
 
-def aStarSearch(problem, robot_id, start_state, planner, collison_point, neighbor_robot_point, goal_states):
+
+def aStarSearch(problem, robot_id, start_state, planner, collison_point, neighbor_robot_point, goal_states,iter):
 
     
   "Search the node that has the lowest combined cost and weighted heuristic first."
@@ -31,11 +44,12 @@ def aStarSearch(problem, robot_id, start_state, planner, collison_point, neighbo
   explored = []
   #Create Fringe to store all nodes to be expaned
   fringe = []
+  path_coordinates = []
   #Add the start state to Fringe [start_state ]
   fringe.append([start_state, [start_state], 0, (heuristic_1(problem, start_state, heusritic_weight, robot_id)),[]]) #[] added in motion primitive to store action
   
  
-  print("Planning...")  
+  # print("Planning...")  
   
   
   while len(fringe)>0:
@@ -43,79 +57,77 @@ def aStarSearch(problem, robot_id, start_state, planner, collison_point, neighbo
       fringe = sorted(fringe, key = operator.itemgetter(3))
       
       #Pop least cost node and add to explored list
-      current_node = fringe.pop(0)
-     # print("after going " , current_node[4],current_node[0],"it would be exapanded")
-      #print(current_node[0],"lets see kya hai ...")
-      explored.append(current_node[0]) # only the state needs to be added to explored list 
+      popped = fringe.pop(0)
+
+      explored.append(popped[0]) # only the state needs to be added to explored list 
       
-     
+      # if len(explored)>iter:
+      #   return  path_coordinates  ,explored, fringe
+      #   break
+
+
       
       if planner==1:
-          if problem.isGoalState(robot_id ,current_node[0]):          
-               path_coordinates = current_node[1]
-               
-               return path_coordinates
-      else: #local planning 
-          if current_node[0] == goal_states[-1]: #taking last element of positions_after_collision array i.e final goal #to be improved
-              
-              path_coordinates = current_node[1]
-              return path_coordinates
+          if problem.isGoalState(robot_id ,popped[0]):          
+               path_coordinates = popped[1]
 
-      #Expand node and get successors
-      if planner==1:  #if its planning globally
+               return path_coordinates , explored, fringe
 
-        successors = problem.getSuccessors(current_node[0])  
-        
-        #here i have to plot succesor any on every succesor 
-                  
-      elif planner==2: #if it wants plan locally AS PER COLREGS 15 RIGHT SIDE 
-        
-        successors= problem.getSuccessors_local(robot_id, current_node[0], collison_point, neighbor_robot_point, start_state)
 
-      else : #IN CASE OF HEAD-ON COLLISION  
+      if planner==1:
 
-        successors= problem.getSuccessors_head_on(robot_id, current_node[0], collison_point, neighbor_robot_point, start_state)   
+        successors = problem.getSuccessors(popped[0])  
+
         
       for successor, action, cost in successors:
           
-          g = current_node[2] + cost
-          h = heuristic_1(problem, successor, heusritic_weight, robot_id)
-          path = current_node[1] + [successor]
-          temp_node = [successor, path, g, h+g] 
-          temp_node = [successor, path, g, h+g,action] #added action in motion primitive 
-         
-          #Check if the successor already exists in explored list
-          if successor in explored:
-              continue       #If so already optimal do not add to list
-          
-          #Check if duplicate node exists in fringe
-          flag_do_not_append = False
-          
-          for node in fringe:  
-              #print(node[0][2],"popped out node heading angle " ,)
-              
-              k= abs(node[0][0]-successor[0]) + abs(node[0][1]-successor[1]) + abs(node[0][2]-successor[2])
-              if k < 0.01: 
-                     
-              #if node[0] == successor:                  
-                   #Check if existing duplicate is actually shorter path than the new node            
-                  if node[2] <= temp_node[2]:
-                      #In this case do not add the new node to fringe 
-                      flag_do_not_append = True
-                      #print("new succesor has higher cost")
-                      #No need to check further in existing fringe
-                      break
-                      
-          if flag_do_not_append:
-              #In this case do not add the new node 
-              continue
-          
-          #If none of the above then add successor to fringe 
-          
-          fringe.append(temp_node)
-         
-          #print(temp_node[4],"temp node ")
-     
-            
+        g = popped[2] + cost
+        h = heuristic_1(problem, successor, heusritic_weight, robot_id)
+        path = popped[1] + [successor]
+        # temp_node = [successor, path, g, h+g] 
+        temp_node = [successor, path, g, h+g,action] #added action in motion primitive 
       
-  return ([])  
+        flag_do_not_append = False
+        # print(explored,'/n')
+      
+
+
+        for explored_node in explored:  
+          del_x_c = explored_node[0] - successor[0]
+          del_y_c = explored_node[1] - successor[1]
+          K_ecl  = ((del_x_c)**2 + (del_y_c)**2)**0.5
+          psi_diff = abs(explored_node[2] - successor[2])
+
+
+          if K_ecl < 2.3 :
+            flag_do_not_append = True 
+            continue
+
+
+        for fringe_node in fringe:  
+            del_x_1 = fringe_node[0][0] - successor[0]
+            del_y_1 = fringe_node[0][1] - successor[1]
+            K_ecl  = ((del_x_1)**2 + (del_y_1)**2)**0.5
+            psi_diff = abs(fringe_node[0][2] - successor[2])
+
+            if K_ecl < 0.58 and psi_diff <2: 
+              if fringe_node[2] <= temp_node[2]:
+                flag_do_not_append = True
+
+                break
+              
+                    
+        if flag_do_not_append:
+            #In this case do not add the new node 
+            continue
+        
+        #If none of the above then add successor to fringe 
+        
+        fringe.append(temp_node)
+
+          
+
+     
+  print("mayday A* killed by you")
+  return explored ,explored, fringe
+
