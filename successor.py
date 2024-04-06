@@ -73,6 +73,12 @@ class Problem:
 
         return
 
+
+
+
+
+
+
     def getSuccessors(self, state):
         
 
@@ -122,13 +128,39 @@ class Problem:
 
             new_action = action
             
-            
+
+            def between_points(x1, y1, x2, y2, num_points):
+                dx, dy = (x2 - x1) / (num_points + 1), (y2 - y1) / (num_points + 1)
+                return [[x1 + i * dx, y1 + i * dy] for i in range(1, num_points + 1)]
+
+
+            x1, y1 = state[0], state[1]
+            x2, y2 = new_successor[0],new_successor[1]
+            num_points = 10
+            interpolated_points = between_points(x1, y1, x2, y2, num_points)
     
                     
                    
-            if self.isObstacle(new_successor,action):
+            if any(self.isObstacle(point,action) for point in interpolated_points):
 
-                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 continue
 
 
