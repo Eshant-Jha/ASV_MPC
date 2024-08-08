@@ -31,7 +31,7 @@ class Serret_Frenet_Guidance:
         X = psi + beta
         
         ydd = self.spline.__call__(t,1).item(0)  # ydd is first derivative of curve at t or  slope of the tangent at t 
-        xdd = 1
+        xdd = 1  #for simplicity its 1 , but it should be calculated as per curvature of curve
         Xt = atan(ydd/xdd)
         
         pd = np.array([[t],[self.spline.__call__(t,0).item(0)]])
