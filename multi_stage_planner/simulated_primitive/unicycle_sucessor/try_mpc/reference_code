@@ -1,0 +1,240 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 26 11:29:59 2023@author: Bijo
+"""
+import math
+import cvxpy
+import numpy as np
+import matplotlib.pyplot as mp
+import time
+import pandas as pd
+
+# Load data from the CSV file using pandas
+path = r"/home/asl-laptop2/Downloads/Vrijesh_mobile_manipulation/MPC test mutibit on unicycle code/waypoints_RRT1.csv"
+data = pd.read_csv(path, sep=',', header = None, names = ["x","y",""], skip_blank_lines=True, index_col = None, encoding = 'utf-8')
+
+# Filter out rows where either 'x' or 'y' column is NaN
+coordinates = data.dropna(subset=['x','y'])
+
+# Select only 'x' and 'y' columns
+coordinates = coordinates[['x','y']]
+
+# convert "coordinates" DataFrame into a list of tuples containing (x, y) pairs
+coordinates_list = coordinates.values.tolist()
+
+#params
+DT = 0.1 #time step
+L = 1 # m distance b/w two joints
+horizon_length = 5 
+#angular_rate = 5.0 # rad/s
+max_velocity = 1.5 # was 5 m/s
+number_of_states = 3
+number_of_control_inputs = 4
+
+R = np.diag([0.0, 0.0, 0.0, 0.0])  # input cost matrix
+Q = np.diag([10.0, 10.0, 9.0])  # state cost matrix  #MPC helper
+
+#Plotter setup  
+mp.close('all')
+mp.ion()  
+fig = mp.figure()
+mp.axis([-2.5, 10, -2.5, 10])
+
+'''def get_robot_line(robot_states):
+    orient = robot_state[2]'''
+    
+def get_nparray_from_matrix(x):
+    return np.array(x).flatten()
+
+#The motion model for MPC
+def get_linear_model_matrix(X_bar, U_bar):
+    
+    x = X_bar[0]
+    y = X_bar[1]
+    theta = X_bar[2]
+    v_ax = U_bar[0]
+    v_ay = U_bar[1]
+    v_bx = U_bar[2]
+    v_by = U_bar[3]
+
+    A = np.zeros((number_of_states, number_of_states))
+    A[0, 0] =  1.0
+    A[1, 1] =  1.0
+    A[2, 2] =  1+(((1/L)*(v_by - v_ay)*math.tan(theta)/(math.cos(theta))) + ((1/L)*(v_bx - v_ax)/(math.tan(theta)*math.sin(theta))))*DT
+   
+    B = np.zeros((number_of_states, number_of_control_inputs))
+    B[0, 0] = 0.5*DT
+    B[0, 2] = 0.5*DT
+    B[1, 1] = 0.5*DT
+    B[1, 3] = 0.5*DT
+    B[2, 0] = DT/(L*math.sin(theta))
+    B[2, 1] = -DT/(L*math.cos(theta))
+    B[2, 2] = -DT/(L*math.sin(theta))
+    B[2, 3] = DT/(L*math.cos(theta))
+
+    
+    C = np.zeros(number_of_states)
+    C[2] = ((1/L)*(v_ay - v_by)*math.sin(theta)/(math.cos(theta))**2) + ((1/L)*(v_ax - v_bx)*math.cos(theta)/(math.sin(theta))**2)*theta*DT
+   
+    return A, B, C
+
+
+#The MPC implimentation
+def mpc(X_ref, X_bar, U_bar):    
+    
+    #Create the optimsation variable x and u
+    #Argument is the shape of the vector
+    x = cvxpy.Variable((number_of_states, horizon_length + 1))
+    u = cvxpy.Variable((number_of_control_inputs , horizon_length))    
+    
+    #set up costs
+    cumulative_cost  = 0.0
+    for t in range (horizon_length):        
+        #Add up control cost
+        cumulative_cost += cvxpy.quad_form(u[:, t], R)    
+        
+        #Add up state cost for updates cycles
+        if t != 0:
+            cumulative_cost += cvxpy.quad_form(X_ref[:, t] - x[:, t], Q)    
+            
+    #Add up state cost for last update cycle
+    cumulative_cost += cvxpy.quad_form(X_ref[:, horizon_length] - x[:, horizon_length], Q)    
+    
+    #set up constraints
+    constraint_vector = []    
+    
+    #Get updated model matrices
+    A, B, C = get_linear_model_matrix(X_bar, U_bar)   
+
+    for t in range(horizon_length): 
+   
+        #Add state evolution constraint
+        constraint_vector += [x[:, t + 1] == A @ x[:, t] + B @ u[:, t] + C]        
+        
+        #Add control constraint
+        constraint_vector += [cvxpy.abs(u[:,t]) <= (max_velocity)] 
+
+    #initial condition
+    constraint_vector += [x[:, 0] == X_bar]    
+    
+    #Formulate problem and solve
+    prob = cvxpy.Problem(cvxpy.Minimize(cumulative_cost), constraint_vector)
+    prob.solve(solver=cvxpy.ECOS, verbose=False)    
+    
+    if prob.status == cvxpy.OPTIMAL or prob.status == cvxpy.OPTIMAL_INACCURATE:
+        OX = get_nparray_from_matrix(x.value[0, :])
+        OY = get_nparray_from_matrix(x.value[1, :])
+        OTheta = get_nparray_from_matrix(x.value[2, :])
+        VAx = get_nparray_from_matrix(u.value[0, :])
+        VAy = get_nparray_from_matrix(u.value[1, :]) 
+        VBx = get_nparray_from_matrix(u.value[2, :]) 
+        VBy = get_nparray_from_matrix(u.value[3, :]) 
+  
+    else:
+        print("Error: Cannot solve mpc..")
+        OX, OY, OTheta = None, None, None
+        VAx, VAy, VBx, VBy = None, None, None, None    
+        
+    return [OX, OY, OTheta, VAx, VAy, VBx, VBy]
+
+# The test setup
+def test_setup():    
+    
+    #Create variables
+    X_ref_global = np.zeros((3,101))
+    X_bar = np.zeros(number_of_states)
+    U_bar = np.zeros(number_of_control_inputs) 
+    
+    #initial pose
+    X_bar[0] = 0.0
+    X_bar[1] = 0.0
+    X_bar[2] = math.pi/2.0 
+
+    #Plot robot
+
+    #robo_fig_handle, = mp.plot(X_bar[0], X_bar[1], 'ro', ms = 5.0)
+
+    #Line for the robot
+    x_start = X_bar[0] + (0.5*L*math.cos(X_bar[2]))
+    y_start = X_bar[1] + (0.5*L*math.sin(X_bar[2]))
+
+    x_end = X_bar[0] - (0.5*L*math.cos(X_bar[2]))
+    y_end = X_bar[1] - (0.5*L*math.sin(X_bar[2]))
+    
+    robo_fig_handle, = mp.plot([x_start, x_end], [y_start, y_end], '-g', alpha = 1.0)
+
+    #initial controls
+    U_bar = [0.0, 0.0, 0.0, 0.0]  
+    
+    #Create and plot global reference
+    for i in range(67):
+            
+            X_ref_global[0,i] = coordinates_list[i][1]
+            X_ref_global[1,i] = coordinates_list[i][0]
+            if i!=0:
+                X_ref_global[2,i] = math.atan2(X_ref_global[1,i] - X_ref_global[1,i-1], X_ref_global[0,i] - X_ref_global[0,i-1] )
+            else:
+                X_ref_global[2,i] = 0 #math.pi/2.0
+
+            #Plot ref traj
+            mp.plot(X_ref_global[0,i], X_ref_global[1,i], 'ko', ms = 1.0)
+            
+    for i in range(67 - horizon_length - 1 ):
+        
+        #Run MPC for local windVB
+        OX, OY, OTheta, VAx, VAy, VBx, VBy = mpc(X_ref_global[:, i: i + horizon_length +1], X_bar, U_bar) 
+        #print(X_ref_global[:,i: i + horizon_length +1])
+        '''
+        print(X_bar)
+        print(U_bar)
+        '''
+        print(OX[1])
+        print(OY[1])
+        print(OTheta[1])
+        '''
+        print(VAx[0])
+        print(VAy[0])
+        print(VBx[0])
+        print(VBy[0])
+        '''
+        #Plot tracked traj
+
+        x_start = OX[1] + (0.5*L*math.cos(OTheta[1]))
+        y_start = OY[1] + (0.5*L*math.sin(OTheta[1]))
+
+        x_end = OX[1] - (0.5*L*math.cos(OTheta[1]))
+        y_end = OY[1] - (0.5*L*math.sin(OTheta[1]))
+
+        # print('x_start: ', x_start)
+        # print('y_start: ', y_start)
+        #print(OTheta[1])
+        # print('x_end: ', x_end)
+        # print('y_end: ', y_end)
+
+        robo_fig_handle, = mp.plot([x_start, x_end], [y_start, y_end], 'r-', alpha = 1.0)
+
+        '''
+        robo_fig_handle.set_xdata(OX[1])
+        robo_fig_handle.set_ydata(OY[1])
+        '''
+
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        time.sleep(0.1)
+        
+        #Update states
+        X_bar[0] = OX[1]
+        X_bar[1] = OY[1]
+        X_bar[2] = OTheta[1]
+        
+        #update controls
+        U_bar = [VAx[0], VAy[0], VBx[0], VBy[0]] 
+        
+        print('completed iter',i)
+
+    return
+
+#run
+if __name__ == '__main__':    
+    test_setup()
+    print ('Program ended')
